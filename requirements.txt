@@ -1,0 +1,5 @@
+discord-components
+dataclass_wizard
+bs4
+sqlalchemy
+git+https://github.com/Pycord-Development/pycord.git@master
