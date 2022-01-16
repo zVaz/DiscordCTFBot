@@ -44,6 +44,7 @@ class ChallengeButtons(discord.ui.View):
       self.message = None
       self.challenge_dict = challenge_dict
       self.add_item(ChallengeButton(label="Start Working", style=discord.ButtonStyle.primary, on_click_callback=self.working))
+      self.add_item(ChallengeButton(label="Stop Working", style=discord.ButtonStyle.red, on_click_callback=self.stop_working))
       self.add_item(ChallengeButton(label="Mark as Done", style=discord.ButtonStyle.green, on_click_callback=self.mark_as_done))
 
    async def working(self, button: discord.ui.Button, interaction: discord.Interaction):
@@ -71,6 +72,28 @@ class ChallengeButtons(discord.ui.View):
       self.stop()
       db_session.remove()
    
+   async def stop_working(self, button: discord.ui.Button, interaction: discord.Interaction):
+      db_session = self.bot.get_db_session(interaction.guild.id)
+      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
+      ctf = bot_info.ctf
+      challenge = ctf.get_category(self.challenge_dict["category"]).get_challege(self.challenge_dict["challenge"])
+      user_found = False
+      for user in challenge.users:
+         if user.username == str(interaction.user):
+            user_found = True
+            break
+      
+      if user_found:
+         challenge.users.remove(user)
+         db_session.commit()
+
+      msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
+      await interaction.response.send_message(content=msg, delete_after=10)
+      if self.message:
+         await self.message.delete_original_message()
+      self.stop()
+      db_session.remove()
+
    async def mark_as_done(self, button: discord.ui.Button, interaction: discord.Interaction):
       db_session = self.bot.db_session()
       bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
@@ -111,7 +134,7 @@ class CTFDropdown(discord.ui.Select):
    async def callback(self, interaction: discord.Interaction):
       challenge_dict = json.loads(self.values[0])
       msg, cb = get_challenge_msg(challenge_dict, self.bot, interaction.guild.id)
-      cb.message = await interaction.response.send_message(msg, view=cb)
+      cb.message = await interaction.response.send_message(msg, view=cb, delete_after=10)
       
       # Reset Drop Down selection
       if self.ctf_view.message:
@@ -164,6 +187,6 @@ class ActiveCTFDropdown(discord.ui.Select):
       db_session.commit()
       db_session.remove()
       
-      await interaction.channel.send("The edit request might be delayed duo to rate limit of 2 channel renames/10 minutes")
+      await interaction.channel.send("The edit request might be delayed duo to rate limit of 2 channel renames/10 minutes", delete_after=5)
       await self.bot.get_cog("InfoCog").update_info()
-      await interaction.response.send_message(content=f"Set {ctf_name} as active CTF")
+      await interaction.response.send_message(content=f"Set {ctf_name} as active CTF", delete_after=10)

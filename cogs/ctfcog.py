@@ -40,14 +40,14 @@ class CTFCog(commands.Cog):
          msg += "```"
 
          ctf_view = ctfviews.CTFView(self.bot, ctf)
-         ctf_view.message = await ctx.respond(msg, view=ctf_view)
+         ctf_view.message = await ctx.respond(msg, view=ctf_view, delete_after=30)
       else:
          await ctx.respond("No active CTF")
       db_session.remove()
 
    @commands.slash_command(guild_ids=[GUILD_ID])
    async def set_active_ctf(self, ctx: commands.Context):
-      await ctx.respond("CTFs", view=ctfviews.ActiveCTFView(self.bot, ctx.guild.id))
+      await ctx.respond("CTFs", view=ctfviews.ActiveCTFView(self.bot, ctx.guild.id), delete_after=10)
 
    # /add_ctfd_ctf name:demo url:https://demo.ctfd.io user:user password:password
    @commands.slash_command(guild_ids=[GUILD_ID])
@@ -60,9 +60,9 @@ class CTFCog(commands.Cog):
       db_session = self.bot.get_db_session(ctx.guild.id)
       ctf = CFTModels.ctf_from_ctfd(db_session, name, url, user, password)
       if ctf:
-         await ctx.respond(f"CTF {name} added")
+         await ctx.respond(f"CTF {name} added", delete_after=10)
       else:
-         await ctx.respond(f"Failef to add CTF {name}")
+         await ctx.respond(f"Failef to add CTF {name}", delete_after=10)
       db_session.remove()
 
 def setup(bot):
