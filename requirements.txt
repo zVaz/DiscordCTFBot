@@ -1,5 +1,3 @@
-discord-components
-dataclass_wizard
-bs4
-sqlalchemy
+bs4==0.0.1
+SQLAlchemy==1.4.29
 git+https://github.com/Pycord-Development/pycord.git@master
