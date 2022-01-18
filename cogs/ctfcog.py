@@ -2,10 +2,8 @@ from faulthandler import disable
 from discord.ext import commands, tasks
 import discord
 from discord.commands import Option
-from enum import Enum, auto
-import cogs.uitls as uitls
-import models.CTFModels as CFTModels
 import cogs.ctfviews as ctfviews
+from controllers.CTFController import CTFController
 
 import json
 from dotenv import load_dotenv
@@ -26,24 +24,23 @@ class CTFCog(commands.Cog):
 
    @commands.slash_command(guild_ids=[GUILD_ID])
    async def status(self, ctx: commands.Context):
-      db_session = self.bot.get_db_session(ctx.guild.id)
-      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-      if bot_info is not None:
-         ctf = bot_info.ctf
+      with CTFController(ctx.guild.id) as ctf_controller:
+         bot_info = ctf_controller.get_ctf_bot_info()
+         if bot_info is not None and bot_info.ctf is not None:
+            ctf = bot_info.ctf
 
-         msg = f"```{ctf.name} CTF\n"
-         for category in ctf.categories:
-            msg += f"  {category.name}\n"
-            for challenge in category.challenges:
-               challenge_status = "🟩" if challenge.is_done else "🟦" if challenge.is_in_progress() else "🟥"
-               msg += f"    {challenge_status} {challenge.name}\n"
-         msg += "```"
+            msg = f"```{ctf.name} CTF\n"
+            for category in ctf.categories:
+               msg += f"  {category.name}\n"
+               for challenge in category.challenges:
+                  challenge_status = "🟩" if challenge.is_done else "🟦" if challenge.is_in_progress() else "🟥"
+                  msg += f"    {challenge_status} {challenge.name}\n"
+            msg += "```"
 
-         ctf_view = ctfviews.CTFView(self.bot, ctf)
-         ctf_view.message = await ctx.respond(msg, view=ctf_view, delete_after=30)
-      else:
-         await ctx.respond("No active CTF")
-      db_session.remove()
+            ctf_view = ctfviews.CTFView(self.bot, ctf)
+            ctf_view.message = await ctx.respond(msg, view=ctf_view, delete_after=30)
+         else:
+            await ctx.respond("No active CTF", delete_after=10)
 
    @commands.slash_command(guild_ids=[GUILD_ID])
    async def set_active_ctf(self, ctx: commands.Context):
@@ -57,13 +54,12 @@ class CTFCog(commands.Cog):
                           url: Option(str, "CTF CTFd url"), 
                           user: Option(str, "CTF CTFd url username"), 
                           password: Option(str, "CTF CTFd url password")):
-      db_session = self.bot.get_db_session(ctx.guild.id)
-      ctf = CFTModels.ctf_from_ctfd(db_session, name, url, user, password)
-      if ctf:
-         await ctx.respond(f"CTF {name} added", delete_after=10)
-      else:
-         await ctx.respond(f"Failef to add CTF {name}", delete_after=10)
-      db_session.remove()
+      with CTFController(ctx.guild.id) as ctf_controller:
+         ctf = ctf_controller.ctf_from_ctfd(name, url, user, password)
+         if ctf:
+            await ctx.respond(f"CTF {name} added", delete_after=10)
+         else:
+            await ctx.respond(f"Failef to add CTF {name}", delete_after=10)
 
 def setup(bot):
     bot.add_cog(CTFCog(bot))

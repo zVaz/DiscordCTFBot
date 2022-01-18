@@ -3,6 +3,7 @@ import discord
 from enum import Enum, auto
 import cogs.uitls as uitls
 import models.CTFModels as CFTModels
+from controllers.CTFController import CTFController
 
 class InfoCog(commands.Cog):
    def __init__(self, bot):
@@ -38,15 +39,15 @@ class InfoCog(commands.Cog):
    async def update_info(self):
       for guild in self.bot.guilds:
          category = self.find_info_category(guild)
-         db_session = self.bot.get_db_session(guild.id)
-         bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-         if bot_info is None or bot_info.ctf is None:
-            ctf_name = "None"
-         else:
-            ctf_name = bot_info.ctf.name
-         await uitls.update_channel_name(self.bot,
-                                         channel_id=category.channels[uitls.ChannelIndexes.CURRENT_CTF.value].id,
-                                         name=f"🥷┃Current CTF: {ctf_name}")
+         with CTFController(guild.id) as ctf_controller:
+            bot_info = ctf_controller.get_ctf_bot_info()
+            if bot_info is None or bot_info.ctf is None:
+               ctf_name = "None"
+            else:
+               ctf_name = bot_info.ctf.name
+            await uitls.update_channel_name(self.bot,
+                                            channel_id=category.channels[uitls.ChannelIndexes.CURRENT_CTF.value].id,
+                                            name=f"🥷┃Current CTF: {ctf_name}")
          
          if category is not None:
                await uitls.update_channel_name(self.bot,
@@ -58,7 +59,6 @@ class InfoCog(commands.Cog):
                                                channel_id=category.channels[uitls.ChannelIndexes.BOTS_COUNT.value].id,
                                                name=f"🤖┃Bots: ",
                                                name_postfix_callback = lambda channel: len([m for m in channel.guild.members if m.bot]))
-         db_session.remove()
 
 def setup(bot):
     bot.add_cog(InfoCog(bot))

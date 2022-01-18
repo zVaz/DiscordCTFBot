@@ -1,27 +1,23 @@
 from discord.ext import commands
 import discord
-import cogs.uitls as uitls
-import models.CTFModels as CFTModels
+import models.CTFModels as CTFModels
 import json
+from controllers.CTFController import CTFController
 
 def get_challenge_msg(challenge_dict, bot, guild_id):
-   db_session = bot.get_db_session(guild_id)
-   bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-   ctf = bot_info.ctf
+   with CTFController(guild_id) as ctf_controller:
+      ctf, challenge = ctf_controller.get_ctf_and_challenge(challenge_dict["category"], challenge_dict["challenge"])
 
-   challenge = ctf.get_category(challenge_dict["category"]).get_challege(challenge_dict["challenge"])
+      msg = f"{challenge.name}\n"
+      msg += f"   `Points : {challenge.points}`\n"
+      msg += f"   `Status : {'🟩 Done' if challenge.is_done else '🟦 In Progress' if challenge.is_in_progress() else '🟥 Not Started'}`\n"
+      msg += f"   `Members: `{', '.join ([user.mention for user in challenge.users])}\n"
 
-   msg = f"{challenge.name}\n"
-   msg += f"   `Points : {challenge.points}`\n"
-   msg += f"   `Status : {'🟩 Done' if challenge.is_done else '🟦 In Progress' if challenge.is_in_progress() else '🟥 Not Started'}`\n"
-   msg += f"   `Members: `{', '.join ([user.mention for user in challenge.users])}\n"
-
-   cb = ChallengeButtons(bot, ctf, challenge_dict)
-   db_session.remove()
+      cb = ChallengeButtons(bot, ctf, challenge_dict)
    return (msg, cb)
 
 class CTFView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, ctf: CFTModels.CTF):
+    def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF):
       super().__init__()
       self.bot = bot
       self.ctf = ctf
@@ -38,7 +34,7 @@ class ChallengeButton(discord.ui.Button):
       await self.on_click_callback(self,interaction)
 
 class ChallengeButtons(discord.ui.View):
-   def __init__(self, bot: commands.Bot, ctf: CFTModels.CTF, challenge_dict):
+   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, challenge_dict):
       super().__init__()
       self.bot = bot
       self.message = None
@@ -48,69 +44,37 @@ class ChallengeButtons(discord.ui.View):
       self.add_item(ChallengeButton(label="Mark as Done", style=discord.ButtonStyle.green, on_click_callback=self.mark_as_done))
 
    async def working(self, button: discord.ui.Button, interaction: discord.Interaction):
-      db_session = self.bot.get_db_session(interaction.guild.id)
-      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-      ctf = bot_info.ctf
-      challenge = ctf.get_category(self.challenge_dict["category"]).get_challege(self.challenge_dict["challenge"])
-      user_found = False
-      for user in challenge.users:
-         if user.username == str(interaction.user):
-            user_found = True
-            break
-
-      if not user_found:
-         user = db_session.query(CFTModels.User).filter(CFTModels.User.username == str(interaction.user)).one_or_none()
-         if user is None:
-            user = CFTModels.User(username=str(interaction.user), mention=interaction.user.mention)
-         challenge.users.append(user)
-         db_session.commit()
+      with CTFController(interaction.guild.id) as ctf_controller:
+         ctf_controller.start_working_on_challenge(self.challenge_dict["category"], self.challenge_dict["challenge"], str(interaction.user), interaction.user.mention)
 
       msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
       if self.message:
          await self.message.delete_original_message()
       self.stop()
-      db_session.remove()
    
    async def stop_working(self, button: discord.ui.Button, interaction: discord.Interaction):
-      db_session = self.bot.get_db_session(interaction.guild.id)
-      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-      ctf = bot_info.ctf
-      challenge = ctf.get_category(self.challenge_dict["category"]).get_challege(self.challenge_dict["challenge"])
-      user_found = False
-      for user in challenge.users:
-         if user.username == str(interaction.user):
-            user_found = True
-            break
-      
-      if user_found:
-         challenge.users.remove(user)
-         db_session.commit()
+      with CTFController(interaction.guild.id) as ctf_controller:
+         ctf_controller.stop_working_on_challenge(self.challenge_dict["category"], self.challenge_dict["challenge"], str(interaction.user))
 
       msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
       if self.message:
          await self.message.delete_original_message()
       self.stop()
-      db_session.remove()
 
    async def mark_as_done(self, button: discord.ui.Button, interaction: discord.Interaction):
-      db_session = self.bot.db_session()
-      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-      ctf = bot_info.ctf
-      challenge = ctf.get_category(self.challenge_dict["category"]).get_challege(self.challenge_dict["challenge"])
-      challenge.is_done = True
-      db_session.commit()
+      with CTFController(interaction.guild.id) as ctf_controller:
+         ctf_controller.mark_challenge_as_done(self.challenge_dict["category"], self.challenge_dict["challenge"])
 
       msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
       if self.message:
          await self.message.delete_original_message()
       self.stop()
-      db_session.remove()
 
 class CTFDropdown(discord.ui.Select):
-   def __init__(self, bot: commands.Bot, ctf: CFTModels.CTF, ctf_view: CTFView):
+   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, ctf_view: CTFView):
       self.bot = bot
       self.ctf_view = ctf_view
 
@@ -152,18 +116,19 @@ class ActiveCTFView(discord.ui.View):
 class ActiveCTFDropdown(discord.ui.Select):
    def __init__(self, bot: commands.Bot, guild_id):
       self.bot = bot
-      db_session = self.bot.get_db_session(guild_id)
       options = []
       # Limit of Select is 25 SelectOptions
       options.append(discord.SelectOption(
                   label="None",
                   value="None"
             ))
-      for ctf in db_session.query(CFTModels.CTF):
-         options.append(discord.SelectOption(
-                  label=ctf.name,
-                  value=ctf.id
-            ))
+      
+      with CTFController(guild_id) as ctf_controller:
+         for ctf in ctf_controller.get_all_ctfs():
+            options.append(discord.SelectOption(
+                     label=ctf.name,
+                     value=ctf.id
+               ))
 
       super().__init__(
          placeholder="Choose Active CTF...",
@@ -174,18 +139,9 @@ class ActiveCTFDropdown(discord.ui.Select):
 
    async def callback(self, interaction: discord.Interaction):
       current_ctf_id = None if self.values[0] == "None" else self.values[0]
-      db_session = self.bot.get_db_session(interaction.guild.id)
-      bot_info = db_session.query(CFTModels.BotInfo).one_or_none()
-      if bot_info is None:
-         db_session.add(CFTModels.BotInfo(current_ctf_id = current_ctf_id))
-      else:
-         bot_info.current_ctf_id = current_ctf_id
-      ctf_name = "None"
-      if current_ctf_id != None:
-         ctf = db_session.query(CFTModels.CTF).filter(CFTModels.CTF.id == current_ctf_id).one_or_none()
-         ctf_name = ctf.name
-      db_session.commit()
-      db_session.remove()
+
+      with CTFController(interaction.guild.id) as ctf_controller:
+         ctf_name = ctf_controller.set_current_ctf(current_ctf_id)
       
       await interaction.channel.send("The edit request might be delayed duo to rate limit of 2 channel renames/10 minutes", delete_after=5)
       await self.bot.get_cog("InfoCog").update_info()
