@@ -1,9 +1,9 @@
 import os
-from discord.ext import commands, tasks
+from discord.ext import commands
 from discord.commands import Option
-import cogs.ctfviews as ctfviews
-from controllers.CTFController import CTFController
 from dotenv import load_dotenv
+from cogs.ctfviews import CTFView, ActiveCTFView
+from controllers.CTFController import CTFController
 
 # TODO
 load_dotenv("../.env")
@@ -33,14 +33,14 @@ class CTFCog(commands.Cog):
                   msg += f"    {challenge_status} {challenge.name}\n"
             msg += "```"
 
-            ctf_view = ctfviews.CTFView(self.bot, ctf)
-            ctf_view.message = await ctx.respond(msg, view=ctf_view, delete_after=30)
+            ctf_view = CTFView(self.bot, ctf)
+            await ctx.respond(msg, view=ctf_view, delete_after=30)
          else:
             await ctx.respond("No active CTF", delete_after=10)
 
    @commands.slash_command(guild_ids=[GUILD_ID])
    async def set_active_ctf(self, ctx: commands.Context):
-      await ctx.respond("CTFs", view=ctfviews.ActiveCTFView(self.bot, ctx.guild.id), delete_after=10)
+      await ctx.respond("CTFs", view=ActiveCTFView(self.bot, ctx.guild.id), delete_after=10)
 
    # /add_ctfd_ctf name:demo url:https://demo.ctfd.io user:user password:password
    @commands.slash_command(guild_ids=[GUILD_ID])
@@ -59,4 +59,4 @@ class CTFCog(commands.Cog):
             await ctx.respond(f"Failed to add CTF {name}", delete_after=10)
 
 def setup(bot):
-    bot.add_cog(CTFCog(bot))
+   bot.add_cog(CTFCog(bot))

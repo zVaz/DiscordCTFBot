@@ -1,10 +1,10 @@
 import discord
 from discord.ext import commands
-import models.CTFModels as CTFModels
+from models.CTFModels import CTF
 from controllers.CTFController import CTFController
 import json
 
-def get_challenge_msg(challenge_dict: dict[str, str], bot: commands.Bot, guild_id: int):
+def get_challenge_msg(bot: commands.Bot, challenge_dict: dict[str, str], guild_id: int):
    with CTFController(guild_id) as ctf_controller:
       ctf, challenge = ctf_controller.get_ctf_and_challenge(challenge_dict["category"], challenge_dict["challenge"])
 
@@ -17,13 +17,12 @@ def get_challenge_msg(challenge_dict: dict[str, str], bot: commands.Bot, guild_i
    return (msg, cb)
 
 class CTFView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF):
+   def __init__(self, bot: commands.Bot, ctf: CTF):
       super().__init__()
       self.bot = bot
       self.ctf = ctf
-      self.message = None
 
-      self.add_item(CTFDropdown(self.bot, ctf, self))
+      self.add_item(CTFDropdown(self.bot, ctf))
 
 class ChallengeButton(discord.ui.Button):
    def __init__(self, label, style, on_click_callback):
@@ -34,10 +33,9 @@ class ChallengeButton(discord.ui.Button):
       await self.on_click_callback(self,interaction)
 
 class ChallengeButtons(discord.ui.View):
-   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, challenge_dict: dict[str, str]):
+   def __init__(self, bot: commands.Bot, ctf: CTF, challenge_dict: dict[str, str]):
       super().__init__()
       self.bot = bot
-      self.message = None
       self.challenge_dict = challenge_dict
       self.add_item(ChallengeButton(label="Start Working", style=discord.ButtonStyle.primary, on_click_callback=self.working))
       self.add_item(ChallengeButton(label="Stop Working", style=discord.ButtonStyle.red, on_click_callback=self.stop_working))
@@ -47,37 +45,32 @@ class ChallengeButtons(discord.ui.View):
       with CTFController(interaction.guild.id) as ctf_controller:
          ctf_controller.start_working_on_challenge(self.challenge_dict["category"], self.challenge_dict["challenge"], str(interaction.user), interaction.user.mention)
 
-      msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
+      msg, _ = get_challenge_msg(self.bot, self.challenge_dict, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
-      if self.message:
-         await self.message.delete_original_message()
-      self.stop()
+      if interaction.message:
+         await interaction.message.delete()
    
    async def stop_working(self, button: discord.ui.Button, interaction: discord.Interaction):
       with CTFController(interaction.guild.id) as ctf_controller:
          ctf_controller.stop_working_on_challenge(self.challenge_dict["category"], self.challenge_dict["challenge"], str(interaction.user))
 
-      msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
+      msg, _ = get_challenge_msg(self.bot, self.challenge_dict, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
-      if self.message:
-         await self.message.delete_original_message()
-      self.stop()
+      if interaction.message:
+         await interaction.message.delete()
 
    async def mark_as_done(self, button: discord.ui.Button, interaction: discord.Interaction):
       with CTFController(interaction.guild.id) as ctf_controller:
          ctf_controller.mark_challenge_as_done(self.challenge_dict["category"], self.challenge_dict["challenge"])
 
-      msg, cb = get_challenge_msg(self.challenge_dict, self.bot, interaction.guild.id)
+      msg, _ = get_challenge_msg(self.bot, self.challenge_dict, interaction.guild.id)
       await interaction.response.send_message(content=msg, delete_after=10)
-      if self.message:
-         await self.message.delete_original_message()
-      self.stop()
+      if interaction.message:
+         await interaction.message.delete()
 
 class CTFDropdown(discord.ui.Select):
-   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, ctf_view: CTFView):
+   def __init__(self, bot: commands.Bot, ctf: CTF):
       self.bot = bot
-      self.ctf_view = ctf_view
-
       options = []
       # Limit of Select is 25 SelectOptions
       for category in ctf.categories:
@@ -97,17 +90,15 @@ class CTFDropdown(discord.ui.Select):
 
    async def callback(self, interaction: discord.Interaction):
       challenge_dict = json.loads(self.values[0])
-      msg, cb = get_challenge_msg(challenge_dict, self.bot, interaction.guild.id)
-      cb.message = await interaction.response.send_message(msg, view=cb, delete_after=10)
+      msg, cb = get_challenge_msg(self.bot, challenge_dict, interaction.guild.id)
+      await interaction.response.send_message(msg, view=cb, delete_after=10)
       
       # Reset Drop Down selection
-      if self.ctf_view.message:
-         self.disabled = True
-         #await self.ctf_view.message.edit(content=self.ctf_view.ctf.name, view=self.ctf_view)
-         await self.ctf_view.message.delete_original_message()
+      if interaction.message:
+         await interaction.message.delete()
 
 class ActiveCTFView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, guild_id: int):
+   def __init__(self, bot: commands.Bot, guild_id: int):
       super().__init__()
       self.bot = bot
 

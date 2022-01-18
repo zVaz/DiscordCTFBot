@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands, tasks
-import cogs.uitls as uitls
+from cogs.uitls import update_channel_name, INFO_CATEGORY_NAME, ChannelIndexes
 from controllers.CTFController import CTFController
 
 class InfoCog(commands.Cog):
@@ -10,8 +10,8 @@ class InfoCog(commands.Cog):
 
    def find_info_category(self, guild: discord.Guild):
       for category in guild.categories:
-         if category.name == uitls.INFO_CATEGORY_NAME:
-               return category
+         if category.name == INFO_CATEGORY_NAME:
+            return category
       return None
 
    #
@@ -23,11 +23,11 @@ class InfoCog(commands.Cog):
       category = self.find_info_category(ctx.guild)
       if category is not None:
          await ctx.send("The edit request might be delayed duo to rate limit of 2 channel renames/10 minutes")
-         await uitls.update_channel_name(self.bot,
-                                         channel_id=category.channels[uitls.ChannelIndexes.CURRENT_CTF.value].id,
-                                         name=f"🥷┃Current CTF: {cft_name}",
-                                         on_success_callback = lambda channel: ctx.send("Set Current CTF Done"),
-                                         on_error_callback = lambda channel: ctx.send("Set Current CTF failed"))
+         await update_channel_name(self.bot,
+                                   channel_id=category.channels[ChannelIndexes.CURRENT_CTF.value].id,
+                                   name=f"🥷┃Current CTF: {cft_name}",
+                                   on_success_callback = lambda channel: ctx.send("Set Current CTF Done"),
+                                   on_error_callback = lambda channel: ctx.send("Set Current CTF failed"))
 
    #
    # Tasks
@@ -43,20 +43,20 @@ class InfoCog(commands.Cog):
                ctf_name = "None"
             else:
                ctf_name = bot_info.ctf.name
-            await uitls.update_channel_name(self.bot,
-                                            channel_id=category.channels[uitls.ChannelIndexes.CURRENT_CTF.value].id,
-                                            name=f"🥷┃Current CTF: {ctf_name}")
+            await update_channel_name(self.bot,
+                                      channel_id=category.channels[ChannelIndexes.CURRENT_CTF.value].id,
+                                      name=f"🥷┃Current CTF: {ctf_name}")
          
          if category is not None:
-               await uitls.update_channel_name(self.bot,
-                                               channel_id=category.channels[uitls.ChannelIndexes.MEMBERS_COUNT.value].id,
-                                               name=f"👥┃Members: ",
-                                               name_postfix_callback = lambda channel: len([m for m in channel.guild.members if not m.bot]))
-               
-               await uitls.update_channel_name(self.bot,
-                                               channel_id=category.channels[uitls.ChannelIndexes.BOTS_COUNT.value].id,
-                                               name=f"🤖┃Bots: ",
-                                               name_postfix_callback = lambda channel: len([m for m in channel.guild.members if m.bot]))
+            await update_channel_name(self.bot,
+                                      channel_id=category.channels[ChannelIndexes.MEMBERS_COUNT.value].id,
+                                      name="👥┃Members: ",
+                                      name_postfix_callback = lambda channel: len([m for m in channel.guild.members if not m.bot]))
+            
+            await update_channel_name(self.bot,
+                                      channel_id=category.channels[ChannelIndexes.BOTS_COUNT.value].id,
+                                      name="🤖┃Bots: ",
+                                      name_postfix_callback = lambda channel: len([m for m in channel.guild.members if m.bot]))
 
 def setup(bot):
-    bot.add_cog(InfoCog(bot))
+   bot.add_cog(InfoCog(bot))

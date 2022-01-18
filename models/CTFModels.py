@@ -109,9 +109,9 @@ def ctf_from_ctfd(db_session, name, url, username, password):
                                                                                  CTF.id == ctf.id).one_or_none()
          if challenge is None:
             challenge = Challenge(name=challenge_name, 
-                                       category_id=category.id, 
-                                       points = challenge_json["data"]["value"], 
-                                       description = challenge_json["data"]["description"])
+                                  category_id=category.id, 
+                                  points = challenge_json["data"]["value"], 
+                                  description = challenge_json["data"]["description"])
             db_session.add(challenge)
       db_session.commit()
    return ctf
