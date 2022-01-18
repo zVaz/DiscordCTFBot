@@ -1,13 +1,9 @@
-from faulthandler import disable
+import os
 from discord.ext import commands, tasks
-import discord
 from discord.commands import Option
 import cogs.ctfviews as ctfviews
 from controllers.CTFController import CTFController
-
-import json
 from dotenv import load_dotenv
-import os
 
 # TODO
 load_dotenv("../.env")
@@ -55,11 +51,12 @@ class CTFCog(commands.Cog):
                           user: Option(str, "CTF CTFd url username"), 
                           password: Option(str, "CTF CTFd url password")):
       with CTFController(ctx.guild.id) as ctf_controller:
+         await ctx.defer()
          ctf = ctf_controller.ctf_from_ctfd(name, url, user, password)
          if ctf:
             await ctx.respond(f"CTF {name} added", delete_after=10)
          else:
-            await ctx.respond(f"Failef to add CTF {name}", delete_after=10)
+            await ctx.respond(f"Failed to add CTF {name}", delete_after=10)
 
 def setup(bot):
     bot.add_cog(CTFCog(bot))

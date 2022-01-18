@@ -1,16 +1,14 @@
+from typing import Tuple
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 import models.CTFModels as CTFModels
-# import importlib.resources as pkg_resources
-# import data
+import pkg_resources
 
 class GuildDB():
-   def __init__(self, guild_id) -> None:
-      # TODO: make it work when file not found
-      #with pkg_resources.path(data, 'ctf.db') as db_path:
-      #   self.engine = create_engine(f'sqlite:///{db_path}')
+   def __init__(self, guild_id: int) -> None:
+      db_path = pkg_resources.resource_filename("data", f'{guild_id}.db')
+      self.engine = create_engine(f'sqlite:///{db_path}')
 
-      self.engine = create_engine(f'sqlite:///data/{guild_id}.db')
       CTFModels.Base.metadata.create_all(self.engine)
       self.session_factory = sessionmaker(bind=self.engine)
       self.scoped_db_session = scoped_session(self.session_factory)
@@ -19,7 +17,7 @@ class GuildDB():
 class CTFController():
    guilds_dbs: dict[int, GuildDB] = {}
 
-   def __init__(self, guild_id) -> None:
+   def __init__(self, guild_id: int) -> None:
       self.guild_id = guild_id
       if guild_id not in self.guilds_dbs:
          self.guilds_dbs[guild_id] = GuildDB(guild_id)
@@ -32,7 +30,7 @@ class CTFController():
    def __exit__(self, exc_type, exc_value, traceback):
       self.scoped_db_session.remove()
 
-   def set_current_ctf(self, current_ctf_id) -> str:
+   def set_current_ctf(self, current_ctf_id: int) -> str:
       bot_info = self.db_session.query(CTFModels.BotInfo).one_or_none()
       if bot_info is None:
          self.db_session.add(CTFModels.BotInfo(current_ctf_id = current_ctf_id))
@@ -48,14 +46,14 @@ class CTFController():
    def get_all_ctfs(self):
       return self.db_session.query(CTFModels.CTF)
 
-   def mark_challenge_as_done(self, category_name, challenge_name):
+   def mark_challenge_as_done(self, category_name: str, challenge_name: str) -> None:
       bot_info = self.db_session.query(CTFModels.BotInfo).one_or_none()
       ctf = bot_info.ctf
       challenge = ctf.get_category(category_name).get_challege(challenge_name)
       challenge.is_done = True
       self.db_session.commit()
 
-   def stop_working_on_challenge(self, category_name, challenge_name, username):
+   def stop_working_on_challenge(self, category_name: str, challenge_name: str, username: str) -> None:
       bot_info = self.db_session.query(CTFModels.BotInfo).one_or_none()
       ctf = bot_info.ctf
       challenge = ctf.get_category(category_name).get_challege(challenge_name)
@@ -69,7 +67,7 @@ class CTFController():
          challenge.users.remove(user)
          self.db_session.commit()
 
-   def start_working_on_challenge(self, category_name, challenge_name, username, mention):
+   def start_working_on_challenge(self, category_name: str, challenge_name: str, username: str, mention: str) -> None:
       bot_info = self.db_session.query(CTFModels.BotInfo).one_or_none()
       ctf = bot_info.ctf
       challenge = ctf.get_category(category_name).get_challege(challenge_name)
@@ -86,14 +84,14 @@ class CTFController():
          challenge.users.append(user)
          self.db_session.commit()
 
-   def get_ctf_and_challenge(self, category_name, challenge_name):
+   def get_ctf_and_challenge(self, category_name, challenge_name) -> tuple[CTFModels.CTF, CTFModels.Challenge]:
       bot_info = self.db_session.query(CTFModels.BotInfo).one_or_none()
       ctf = bot_info.ctf
       challenge = ctf.get_category(category_name).get_challege(challenge_name)
       return (ctf, challenge)
 
-   def get_ctf_bot_info(self):
+   def get_ctf_bot_info(self) -> CTFModels.BotInfo:
       return self.db_session.query(CTFModels.BotInfo).one_or_none()
 
-   def ctf_from_ctfd(self, name, url, user, password):
+   def ctf_from_ctfd(self, name: str, url: str, user: str, password: str) -> str:
       return CTFModels.ctf_from_ctfd(self.db_session, name, url, user, password)

@@ -1,9 +1,7 @@
-from curses import resetty
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Table, Boolean, and_, ForeignKeyConstraint, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, relationship, backref, scoped_session
 from sqlalchemy.ext.declarative import declarative_base
-import importlib.resources as resources
-from requests.sessions import urljoin, urlparse, Session
+from requests.sessions import urljoin, Session
 from bs4 import BeautifulSoup
 
 Base = declarative_base()

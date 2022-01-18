@@ -1,10 +1,10 @@
-from discord.ext import commands
 import discord
+from discord.ext import commands
 import models.CTFModels as CTFModels
-import json
 from controllers.CTFController import CTFController
+import json
 
-def get_challenge_msg(challenge_dict, bot, guild_id):
+def get_challenge_msg(challenge_dict: dict[str, str], bot: commands.Bot, guild_id: int):
    with CTFController(guild_id) as ctf_controller:
       ctf, challenge = ctf_controller.get_ctf_and_challenge(challenge_dict["category"], challenge_dict["challenge"])
 
@@ -34,7 +34,7 @@ class ChallengeButton(discord.ui.Button):
       await self.on_click_callback(self,interaction)
 
 class ChallengeButtons(discord.ui.View):
-   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, challenge_dict):
+   def __init__(self, bot: commands.Bot, ctf: CTFModels.CTF, challenge_dict: dict[str, str]):
       super().__init__()
       self.bot = bot
       self.message = None
@@ -107,14 +107,14 @@ class CTFDropdown(discord.ui.Select):
          await self.ctf_view.message.delete_original_message()
 
 class ActiveCTFView(discord.ui.View):
-    def __init__(self, bot: commands.Bot, guild_id):
+    def __init__(self, bot: commands.Bot, guild_id: int):
       super().__init__()
       self.bot = bot
 
       self.add_item(ActiveCTFDropdown(self.bot, guild_id))
 
 class ActiveCTFDropdown(discord.ui.Select):
-   def __init__(self, bot: commands.Bot, guild_id):
+   def __init__(self, bot: commands.Bot, guild_id: int):
       self.bot = bot
       options = []
       # Limit of Select is 25 SelectOptions

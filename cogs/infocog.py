@@ -1,8 +1,6 @@
-from discord.ext import commands, tasks
 import discord
-from enum import Enum, auto
+from discord.ext import commands, tasks
 import cogs.uitls as uitls
-import models.CTFModels as CFTModels
 from controllers.CTFController import CTFController
 
 class InfoCog(commands.Cog):
